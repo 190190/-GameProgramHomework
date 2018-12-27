@@ -1,0 +1,459 @@
+<html>
+<head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/94/three.min.js"></script>
+<script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+<script src="https://godmilk.github.io/GameProgramming/newMD2/js/MD2Loader.js"></script>
+<script src="https://190190.github.io/-GameProgramHomework/js/MorphBlendMesh.js"></script>
+<script src="https://190190.github.io/-GameProgramHomework/js/MD2CharacterComplex.js"></script>
+<script src="https://190190.github.io/-GameProgramHomework/js/Gyroscope.js"></script>
+<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+
+<style>
+#info {
+  position: absolute;
+  top: 2%;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  color: red
+}
+
+body {
+  overflow: hidden;
+}
+
+
+</style>
+
+</head>
+<body>
+<div id="info"><span style="font-size:20px;">HW5-MD2</span><br/>
+上鍵:前進、下鍵:後退、左鍵:逆時針旋轉、右鍵:順時針旋轉、空白鍵:跳躍<br/>
+music: <button id="play" style="width:20%">Pause</button>
+</div>
+<audio id="soundtrack" autoplay loop style="display:none">
+<source src="https://190190.github.io/-GameProgramHomework/BGM/bensound-memories (online-audio-converter.com).wav" type='audio/mp3'>
+</audio>
+
+<script>
+
+
+class MD2Wrapper {
+  constructor(config, controls, pos, scale = 1) {
+
+    this.md2 = new THREE.MD2CharacterComplex();
+    this.md2.scale = scale
+    this.md2.controls = controls
+
+    this.md2.onLoadComplete = function() {
+      // here: 'this' is md2
+
+      // cast and receive shadows
+      this.enableShadows(true);
+
+      this.setWeapon(0);
+      this.setSkin(0);
+
+      //this.root.position.copy (pos);
+      this.root.position.x = pos.x;
+      this.root.position.z = pos.z;
+
+      // y is automatically set, accoording to scale ...				
+      console.log('y is ' + this.root.position.y)
+
+      scene.add(this.root);
+
+    }
+    this.md2.loadParts(config);
+
+  }
+}
+
+var SCREEN_WIDTH = window.innerWidth;
+var SCREEN_HEIGHT = window.innerHeight;
+
+var container, stats;
+var scene, renderer, camera;
+var yoshiWrap;
+var light;
+var preX,preZ;
+var treasure,treasure2;
+var tHeight = 220;
+var flag="top";
+
+var box3, box3Helper;
+var cameraControls;
+var clock = new THREE.Clock();
+
+var soundTrack = $('#soundtrack').get(0);
+var isPaused = false;
+$('#play').click(function() {
+  isPaused = !isPaused;
+  if (isPaused) {
+    $('#play').text('Play')
+    soundTrack.pause()
+  } else {
+    $('#play').text('Pause')
+    soundTrack.play()
+  }
+});
+init();
+animate();
+
+
+function init() {
+  container = document.createElement('div');
+  document.body.appendChild(container);
+
+  renderer = new THREE.WebGLRenderer();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x888888);
+  document.body.appendChild(renderer.domElement);
+
+  // CAMERA
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 4000);
+  camera.position.set(0, 150, 600);
+
+  // SCENE
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xffffff);
+  scene.fog = new THREE.Fog(0xffffff, 1000, 4000);
+  scene.add(camera);
+  
+  // LIGHTS
+  scene.add(new THREE.AmbientLight(0x222222));
+
+  light = new THREE.DirectionalLight(0xffffff, 2.25);
+  light.position.set(200, 450, 500);
+
+  light.castShadow = true;
+
+  light.shadow.mapSize.width = 1024;
+  light.shadow.mapSize.height = 512;
+
+  light.shadow.camera.near = 100;
+  light.shadow.camera.far = 1200;
+
+  light.shadow.camera.left = -1000;
+  light.shadow.camera.right = 1000;
+  light.shadow.camera.top = 350;
+  light.shadow.camera.bottom = -350;
+  scene.add(light);
+  // scene.add( new THREE.CameraHelper( light.shadow.camera ) );
+
+
+  //  GROUND
+  //var gt = new THREE.TextureLoader().load( "grasslight-big.jpg" );
+  var gt = new THREE.TextureLoader().load("https://i.imgur.com/p8CRm9W.jpg");
+  var gg = new THREE.PlaneBufferGeometry(16000, 16000);
+  var gm = new THREE.MeshPhongMaterial({
+    color: 0xffffff,
+    map: gt
+  });
+
+  var ground = new THREE.Mesh(gg, gm);
+  ground.rotation.x = -Math.PI / 2;
+  ground.material.map.repeat.set(64, 64);
+  ground.material.map.wrapS = THREE.RepeatWrapping;
+  ground.material.map.wrapT = THREE.RepeatWrapping;
+  // note that because the ground does not cast a shadow, .castShadow is left false
+  ground.receiveShadow = true;
+  scene.add(ground);
+  let axes = new THREE.AxesHelper(100)
+  scene.add(axes)
+
+  // RENDERER
+  renderer = new THREE.WebGLRenderer({
+    antialias: true
+  });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+  container.appendChild(renderer.domElement);
+
+  renderer.gammaInput = true;
+  renderer.gammaOutput = true;
+
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+
+  // EVENTS
+  window.addEventListener('resize', onWindowResize, false);
+  document.addEventListener('keydown', onKeyDown, false);
+  document.addEventListener('keyup', onKeyUp, false);
+
+  // CONTROLS
+  cameraControls = new THREE.OrbitControls(camera, renderer.domElement);
+  cameraControls.target.set(0, 50, 0);
+  cameraControls.update();
+  /////////////////////////////////////////////////////////////////////////////
+  // CHARACTER: yoshi
+  let configYoshi = {
+
+    baseUrl: "https://190190.github.io/-GameProgramHomework/q2mdl/enemy/",
+
+    body: "enemy.md2",
+    skins: ["enemy.png"],
+    weapons: [],
+
+    animations: {
+      move: "run",
+      idle: "stand",
+      jump: "jump",
+      attack: "attack",
+      crouchMove: "crwalk",
+      crouchIdle: "crstand",
+      crouchAttach: "crattk"
+    },
+
+    walkSpeed: 350, //translation speed
+    crouchSpeed: 175
+
+  };
+  let controls = {
+    moveForward: false,
+    moveBackward: false,
+    moveLeft: false,
+    moveRight: false
+
+  };
+
+  yoshiWrap = new MD2Wrapper(configYoshi, controls, new THREE.Vector3(0, 0, 0), 3);
+  var gyro = new THREE.Gyroscope();
+  gyro.add(camera);
+
+  gyro.add(light, light.target);
+  yoshiWrap.md2.root.add(gyro);
+
+  /*box3 = new THREE.Box3();
+  box3Helper = new THREE.Box3Helper(box3)
+  scene.add(box3Helper)*/
+  
+  let platform = new THREE.Mesh (new THREE.BoxGeometry(200,34,200), new THREE.MeshLambertMaterial ({
+  	color:0xCCFF33
+  }))
+  scene.add (platform)
+  platform.position.set(200,5,100);
+  
+  let platform2 = new THREE.Mesh (new THREE.BoxGeometry(200,700,200), new THREE.MeshLambertMaterial ({
+  	color:0xCCFF33
+  }))
+  scene.add (platform2)
+  platform2.position.set(-200,5,100);
+  
+  let platform3 = new THREE.Mesh (new THREE.BoxGeometry(200,700,200), new THREE.MeshLambertMaterial ({
+  	color:0xCCFF33
+  }))
+  scene.add (platform3)
+  platform3.position.set(100,5,600);
+  
+  let platform4 = new THREE.Mesh (new THREE.BoxGeometry(200,700,200), new THREE.MeshLambertMaterial ({
+  	color:0xCCFF33
+  }))
+  scene.add (platform4)
+  platform4.position.set(600,5,100);
+  
+  let platform5 = new THREE.Mesh (new THREE.BoxGeometry(200,700,200), new THREE.MeshLambertMaterial ({
+  	color:0xCCFF33
+  }))
+  scene.add (platform5)
+  platform5.position.set(500,5,450);
+  
+  let platform6 = new THREE.Mesh (new THREE.BoxGeometry(200,700,200), new THREE.MeshLambertMaterial ({
+  	color:0xCCFF33
+  }))
+  scene.add (platform6)
+  platform6.position.set(-400,5,450);
+  
+  let platform7 = new THREE.Mesh (new THREE.BoxGeometry(200,700,200), new THREE.MeshLambertMaterial ({
+  	color:0xCCFF33
+  }))
+  scene.add (platform7)
+  platform7.position.set(150,5,-450);
+  
+  let platform8 = new THREE.Mesh (new THREE.BoxGeometry(200,700,200), new THREE.MeshLambertMaterial ({
+  	color:0xCCFF33
+  }))
+  scene.add (platform8)
+  platform8.position.set(-400,5,-450);
+  
+  let platform9 = new THREE.Mesh (new THREE.BoxGeometry(200,700,200), new THREE.MeshLambertMaterial ({
+  	color:0xCCFF33
+  }))
+  scene.add (platform9)
+  platform9.position.set(800,5,-450);
+  
+  
+  treasure = new THREE.Mesh (new THREE.IcosahedronGeometry(40,5), new THREE.MeshLambertMaterial ({
+  	color:0x00BBFF
+  }))
+  scene.add (treasure)
+  treasure.position.set(200,220,100);
+  
+}
+
+function onWindowResize() {
+  SCREEN_WIDTH = window.innerWidth;
+  SCREEN_HEIGHT = window.innerHeight;
+
+  renderer.setSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+
+  camera.aspect = SCREEN_WIDTH / SCREEN_HEIGHT;
+  camera.updateProjectionMatrix();
+
+}
+
+function height (x,z) {
+	if (x > 100 && x < 300 && z > 0 && z < 200)
+  	return 90;
+  else if(x > 500 && x < 700 && z > 0 && z < 200)
+  	return 90;
+  else if(x < -100 && x > -300 && z > 0 && z < 200)
+  	return -1;
+  else
+  	return 73
+}
+
+function onKeyDown(event) {
+
+  event.stopPropagation();
+  let controlsY = yoshiWrap.md2.controls;
+
+  switch (event.keyCode) {
+
+    case 38:
+      /*up*/
+    case 87:
+      /*W*/ controlsY.moveForward = true;
+      break;
+
+    case 40:
+      /*down*/
+    case 83:
+      /*S*/ controlsY.moveBackward = true;
+      break;
+
+    case 37:
+      /*left*/
+    case 65:
+      /*A*/ controlsY.moveLeft = true;
+      break;
+
+    case 39:
+      /*right*/
+    case 68:
+      /*D*/ controlsY.moveRight = true;
+      break;
+
+    case 32:
+      /*space*/ controlsY.jump = true;
+      break;
+      // jump: should save the animation before jump
+      // return to that animation, when SPACE is up
+
+    case 67:
+      /*C*/ controlsY.crouch = true;
+      break;
+    case 17:
+      /*ctrl*/ controlsY.attack = true;
+      break;
+
+  }
+
+}
+
+function onKeyUp(event) {
+
+  event.stopPropagation();
+  let controlsY = yoshiWrap.md2.controls;
+
+  switch (event.keyCode) {
+
+    case 38:
+      /*up*/
+    case 87:
+      /*W*/ controlsY.moveForward = false;
+      break;
+
+    case 40:
+      /*down*/
+    case 83:
+      /*S*/ controlsY.moveBackward = false;
+      break;
+
+    case 37:
+      /*left*/
+    case 65:
+      /*A*/ controlsY.moveLeft = false;
+      break;
+
+    case 39:
+      /*right*/
+    case 68:
+      /*D*/ controlsY.moveRight = false;
+      break;
+
+    case 32:
+      /*space*/ controlsY.jump = false;
+      break;
+      // jump: should save the animation before jump
+      // return to that animation, when SPACE is up
+
+    case 67:
+      /*C*/ controlsY.crouch = false;
+      break;
+    case 17:
+      /*ctrl*/ controlsY.attack = false;
+      break;
+
+  }
+
+}
+
+function animate() {
+	var tmp;
+  
+  tmp = height(yoshiWrap.md2.root.position.x, yoshiWrap.md2.root.position.z);
+  if(tmp == -1){
+  	yoshiWrap.md2.root.position.x=preX;
+    yoshiWrap.md2.root.position.z=preZ;
+  }else{
+  	preX=yoshiWrap.md2.root.position.x;
+  	preZ=yoshiWrap.md2.root.position.z;
+  	yoshiWrap.md2.root.position.y=tmp;
+  }
+  
+  if(flag=="top"){
+  	tHeight+=1;
+  }else{
+  	tHeight-=1;
+  }
+  if(treasure.position.y>230){
+  	flag="down";
+  }else if(treasure.position.y<210){
+  	flag="top";
+  }
+  treasure.position.y=tHeight;
+  //treasure2.position.y=tHeight;
+  requestAnimationFrame(animate);
+  render();
+	
+}
+
+function render() {
+
+  //box3.setFromObject(yoshiWrap.md2.root)
+
+  var delta = clock.getDelta();
+  if (yoshiWrap.md2) {
+    yoshiWrap.md2.update(delta)
+  }
+  renderer.render(scene, camera);
+
+}
+window.focus();
+
+</script>
+</body>
+</html>
+
