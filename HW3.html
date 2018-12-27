@@ -1,0 +1,639 @@
+<html>
+<head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/84/three.min.js"></script>
+<script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.5/dat.gui.min.js"></script>
+
+
+
+
+<style>
+
+	body {
+	  background-color: #fff;
+	  color: #111;
+	  margin: 0px;
+	  overflow: hidden;
+	  font-family: Monospace;
+	  font-size: 20px;
+	}
+	
+	#info {
+	  position: absolute;
+	  top: 0px;
+	  width: 100%;
+	  padding: 5px;
+	  text-align: center;
+	  color: #ffff00
+	}
+	
+	a {
+	  color: #00ffff
+	}
+	
+	strong {
+	  color: red
+	}
+	
+	#container {
+	  z-index: 0;
+	  left: 0px;
+	  top: 0px;
+	  overflow: hidden;
+	  position: absolute;
+	  width: 100%;
+	  height: 100%;
+	}
+</style>
+
+</head>
+<body>
+  <div id="info">
+	 HW3-簡單的舞蹈<br>
+	 需按F5才會放出音樂<br>
+	 (BGM from:https://www.bensound.com)
+	  <br>
+  </div>
+<audio id="soundtrack" autoplay loop style="display:none" >
+  <source src="https://190190.github.io/-GameProgramHomework/BGM/cutmusic.wav" type='audio/wav'>
+</audio>
+
+
+<script>
+
+var scene, renderer, camera,soundTrack;
+var body, RlowerArm, RupperArm,LlowerArm,LupperArm,RupperLeg,RlowerLeg,LupperLeg,LlowerLeg;
+var pose0={
+	"RsZ": 0.01,
+  "RsX": 0.02,
+  "RsY": 0.01,
+  "ReX": 0.03,
+  "LsZ": 0.01,
+  "LsX": 0.02,
+  "LsY": 0.01,
+  "LeX": 0.03,
+  "RlZ": 0.01,
+  "RlY": 0.01,
+  "RlueX":0.03,
+  "RlleX":0.03,
+  "LlZ": 0.01,  // Ll for left leg
+	"LlY": 0.01,
+  "LlueX": 0.03,  // Lle for left upper leg elbow
+  "LlleX": 0.03,  // Lle for left lower leg elbow
+  "posY": 0.01,
+  "posX": 0.01
+}
+var pose1={
+	"RsZ": -0.842,
+  "RsX": 0.02,
+  "RsY": 0.01,
+  "ReX": 0.03,
+  "LsZ": 2.124,
+  "LsX": 0.02,
+  "LsY": 0.01,
+  "LeX": 0.03,
+  "RlZ": -0.532,
+  "RlY": 0.01,
+  "RlueX":0.03,
+  "RlleX":0.03,
+  "LlZ": 0.01,  // Ll for left leg
+	"LlY": 0.01,
+  "LlueX": 0.03,  // Lle for left upper leg elbow
+  "LlleX": 0.03,  // Lle for left lower leg elbow
+  "posY": 0.01,
+  "posX": 0.01
+}
+var pose2={
+	"RsZ": -0.842,
+  "RsX": -1.535,
+  "RsY": 1.101,
+  "ReX": -0.529,
+  "LsZ": 0.842,
+  "LsX": -1.535,
+  "LsY": -1.101,
+  "LeX": -0.334,
+  "RlZ": 0.01,
+  "RlY": 0.01,
+  "RlueX":0.03,
+  "RlleX":0.03,
+  "LlZ": 0.01,  // Ll for left leg
+	"LlY": 0.01,
+  "LlueX": 0.03,  // Lle for left upper leg elbow
+  "LlleX": 0.03,  // Lle for left lower leg elbow
+  "posY": 0.01,
+  "posX": -30
+}
+var pose3={
+	"RsZ": -2.124,
+  "RsX": 0.02,
+  "RsY": 0.01,
+  "ReX": 0.03,
+  "LsZ": 0.842,
+  "LsX": 0.02,
+  "LsY": 0.01,
+  "LeX": 0.03,
+  "RlZ": 0.01,
+  "RlY": 0.01,
+  "RlueX":0.03,
+  "RlleX":0.03,
+  "LlZ": 0.532,  // Ll for left leg
+	"LlY": 0.01,
+  "LlueX": 0.03,  // Lle for left upper leg elbow
+  "LlleX": 0.03,  // Lle for left lower leg elbow
+  "posY": 0.01,
+  "posX": 0.01
+}
+var pose4={
+	"RsZ": -0.842,
+  "RsX": -1.535,
+  "RsY": 1.101,
+  "ReX": -0.529,
+  "LsZ": 0.842,
+  "LsX": -1.535,
+  "LsY": -1.101,
+  "LeX": -0.334,
+  "RlZ": 0.01,
+  "RlY": 0.01,
+  "RlueX":0.03,
+  "RlleX":0.03,
+  "LlZ": 0.01,  // Ll for left leg
+	"LlY": 0.01,
+  "LlueX": 0.03,  // Lle for left upper leg elbow
+  "LlleX": 0.03,  // Lle for left lower leg elbow
+  "posY": 0.01,
+  "posX": 30
+}
+var pose5={
+	"RsZ": -2.229,
+  "RsX": 0.01,
+  "RsY": 0.01,
+  "ReX": 0.03,
+  "LsZ": 2.229,
+  "LsX": 0.02,
+  "LsY": 0.01,
+  "LeX": 0.03,
+  "RlZ": -0.737,
+  "RlY": 0.476,
+  "RlueX":0.03,
+  "RlleX":1,
+  "LlZ": 0.737,  // Ll for left leg
+	"LlY": -0.476,
+  "LlueX": 0.03,  // Lle for left upper leg elbow
+  "LlleX": 1,  // Lle for left lower leg elbow
+  "posY":	20,
+  "posX": 0.01
+}
+var gcontrols = {
+	RsZ: 0.01,  // Rs for right shoulder
+	RsX: 0.02,
+	RsY: 0.01,
+  ReX: 0.03,  // Re for right elbow
+  LsZ: 0.01,  // Ls for left shoulder
+	LsX: 0.02,
+	LsY: 0.01,
+	LeX: 0.03,  // Le for left elbow
+  RlZ: 0.01,  // Rl for right leg
+	RlY: 0.01,
+  RlueX: 0.03,  // Rle for right upper leg elbow
+  RlleX: 0.03,  // Rle for right lower leg elbow
+  LlZ: 0.01,  // Ll for left leg
+	LlY: 0.01,
+  LlueX: 0.03,  // Lle for left upper leg elbow
+  LlleX: 0.03,  // Lle for left lower leg elbow
+	posY: 0.01,
+  posX: 0.01
+};
+var keys = [
+	[0, pose0],
+  [0.125, pose1],
+  [0.25, pose2],
+  [0.375, pose3],
+  [0.5, pose4],
+  [0.625, pose5],
+  [0.725, pose0],
+  [0.925, pose5],
+  [1, pose0]
+  
+];
+var T = 3.3;
+var clock = new THREE.Clock();
+var ts = clock.getElapsedTime()
+var intKey =[];
+
+///////////////////////
+init();
+animate();
+
+function buildBody () {
+	var loader = new THREE.TextureLoader(); //84 texture ธคJพน
+	  loader.setCrossOrigin ('');
+	var body = new THREE.Object3D();
+
+	let boxGeometry;
+	boxGeometry = new THREE.BoxGeometry(50, 100, 30);
+  let torso = new THREE.Mesh(boxGeometry, new THREE.MeshNormalMaterial());
+  torso.position.set(0, 115, 0);
+  body.add(torso);
+
+	boxGeometry = new THREE.BoxGeometry(80, 50, 50);
+  let head = new THREE.Mesh(boxGeometry, new THREE.MeshBasicMaterial({ // -y
+		  map: loader.load('https://scontent-tpe1-1.xx.fbcdn.net/v/t1.0-1/p320x320/20429920_1629747610391758_8837452503468731533_n.png?_nc_cat=109&_nc_ht=scontent-tpe1-1.xx&oh=969e025279ba61b576959bf10a156b5d&oe=5C6D72BE')
+		}));
+  head.position.set(0,180,0);
+  body.add(head);
+	
+  let arm;
+  RupperArm = new THREE.Object3D();
+  boxGeometry = new THREE.BoxGeometry(10, 40, 10);
+  arm = new THREE.Mesh(boxGeometry, new THREE.MeshNormalMaterial());
+  RupperArm.add(arm);
+  arm.position.set(-5, -20, 0);
+  body.add(RupperArm);
+  RupperArm.position.set(-25, 140, 0);
+
+  RlowerArm = new THREE.Object3D();
+  boxGeometry = new THREE.BoxGeometry(10, 50, 10);
+  arm = new THREE.Mesh(boxGeometry, new THREE.MeshNormalMaterial());
+  RlowerArm.add(arm);
+  arm.position.set(-5, -30, 0);
+  RlowerArm.position.set(0, -35, 0);
+  RupperArm.add(RlowerArm);
+  
+ 
+  LupperArm = new THREE.Object3D();
+  boxGeometry = new THREE.BoxGeometry(10, 40, 10);
+  arm = new THREE.Mesh(boxGeometry, new THREE.MeshNormalMaterial());
+  LupperArm.add(arm);
+  arm.position.set(5, -20, 0);
+  body.add(LupperArm);
+  LupperArm.position.set(25, 140, 0);
+
+  LlowerArm = new THREE.Object3D();
+  boxGeometry = new THREE.BoxGeometry(10, 50, 10);
+  arm = new THREE.Mesh(boxGeometry, new THREE.MeshNormalMaterial());
+  LlowerArm.add(arm);
+  arm.position.set(5, -30, 0);
+  LlowerArm.position.set(0, -35, 0);
+  LupperArm.add(LlowerArm);
+  
+  let leg;
+  RupperLeg = new THREE.Object3D();
+  boxGeometry = new THREE.BoxGeometry(20, 30, 20);
+  leg = new THREE.Mesh(boxGeometry, new THREE.MeshNormalMaterial());
+  RupperLeg.add(leg);
+  RupperLeg.position.set(-12,70,-5)
+  leg.position.set(0, -20, 0);
+  body.add(RupperLeg);
+
+  RlowerLeg = new THREE.Object3D();
+  boxGeometry = new THREE.BoxGeometry(15, 40, 15);
+  leg = new THREE.Mesh(boxGeometry, new THREE.MeshNormalMaterial());
+  RlowerLeg.add(leg);
+  RlowerLeg.position.set(0, -50, -5);
+  RupperLeg.add(RlowerLeg);
+  
+  LupperLeg = new THREE.Object3D();
+  LupperLeg.position.set(12,70,-5)
+  boxGeometry = new THREE.BoxGeometry(20, 30, 20);
+  leg = new THREE.Mesh(boxGeometry, new THREE.MeshNormalMaterial());
+  
+  leg.position.set(0, -20, 0);
+  LupperLeg.add(leg);
+  body.add(LupperLeg);
+  
+  
+  LlowerLeg = new THREE.Object3D();
+  boxGeometry = new THREE.BoxGeometry(15, 40, 15);
+  leg = new THREE.Mesh(boxGeometry, new THREE.MeshNormalMaterial());
+  
+  LlowerLeg.position.set(0, -50, -5);
+  LlowerLeg.add(leg);
+ 
+  LupperLeg.add(LlowerLeg);
+  
+	return body;
+}
+
+function init() {
+
+  var width = window.innerWidth;
+  var height = window.innerHeight;
+
+  renderer = new THREE.WebGLRenderer({
+    antialias: true
+  });
+  renderer.setSize(width, height);
+  renderer.setClearColor(0x888888);
+
+  document.body.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+
+  camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 10000);
+  camera.position.y = 160;
+  camera.position.z = 400;
+  camera.lookAt(new THREE.Vector3(0, 0, 0));
+  scene.add(camera);
+
+  let controls = new THREE.OrbitControls(camera, renderer.domElement);
+ 	let gridXZ = new THREE.GridHelper(200, 20, 'red', 'white');
+  scene.add(gridXZ);
+  
+  window.addEventListener('resize', onWindowResize, false);
+	/////////////////////////////////////////////////////////////////////////////
+  body = buildBody ();
+  scene.add (body)
+  //body.position.set(0, 0, -35);
+
+  var gui = new dat.GUI({load:loadJSON()});
+  gui.remember(gcontrols);
+  gui.add (gcontrols, 'RsZ', -3.2, 3.2);//right shoulder
+  gui.add (gcontrols, 'RsX', -3.2, 3.2);
+  gui.add (gcontrols, 'RsY', -3.2, 3.2);
+  gui.add (gcontrols, 'ReX', -3, 3);
+    
+  gui.add (gcontrols, 'LsZ', 0, 4);//left shoulder
+  gui.add (gcontrols, 'LsX', -3.2, 3.2);
+  gui.add (gcontrols, 'LsY', -3.2, 3.2);
+  gui.add (gcontrols, 'LeX', -3, 0);
+  
+  gui.add (gcontrols, 'RlZ', -4, 4);//left shoulder
+  gui.add (gcontrols, 'RlY', -3.2, 3.2);
+  gui.add (gcontrols, 'RlueX', 0, 1);
+  gui.add (gcontrols, 'RlleX', 0, 1);
+  
+  gui.add (gcontrols, 'LlZ', 0, 4);//left shoulder
+  gui.add (gcontrols, 'LlY', -3.2, 3.2);
+  
+  gui.add (gcontrols, 'LlueX', 0, 1);
+  gui.add (gcontrols, 'LlleX', 0, 1);
+
+  gui.add (gcontrols, 'posY', 0, 20);
+  gui.add (gcontrols, 'posX', -30, 30);
+}
+
+
+function animate() {
+  requestAnimationFrame(animate);
+  render();
+}
+
+function onWindowResize() {
+  var width = window.innerWidth,
+    height = window.innerHeight;
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+  renderer.setSize(width, height);
+}
+
+function loadJSON(){
+  return {
+  "preset": "pose0",
+  "remembered": {
+    "pose0": {
+      "0": {
+        "RsZ": 0.01,
+        "RsX": 0.02,
+        "RsY": 0.01,
+        "ReX": 0.03,
+        "LsZ": 0.01,
+        "LsX": 0.02,
+        "LsY": 0.01,
+        "LeX": 0.03,
+        "RlZ": 0.01,
+        "RlY": 0.01,
+        "RlueX":0.03,
+        "RlleX":0.03,
+        "LlZ": 0.01,  // Ll for left leg
+        "LlY": 0.01,
+        "LlueX": 0.03,  // Lle for left upper leg elbow
+        "LlleX": 0.03,  // Lle for left lower leg elbow
+        "posY": 0.01,
+        "posX": 0.01
+      }
+    },
+    "pose1": {
+      "0": {
+        "RsZ": -0.842,
+        "RsX": 0.02,
+        "RsY": 0.01,
+        "ReX": 0.03,
+        "LsZ": 2.124,
+        "LsX": 0.02,
+        "LsY": 0.01,
+        "LeX": 0.03,
+        "RlZ": -0.532,
+        "RlY": 0.01,
+        "RlueX":0.03,
+        "RlleX":0.03,
+        "LlZ": 0.01,  // Ll for left leg
+        "LlY": 0.01,
+        "LlueX": 0.03,  // Lle for left upper leg elbow
+        "LlleX": 0.03,  // Lle for left lower leg elbow
+        "posY": 0.01,
+        "posX": 0.01
+      }
+    },
+    "pose2": {
+      "0": {
+        "RsZ": -0.842,
+        "RsX": -1.535,
+        "RsY": 1.101,
+        "ReX": -0.529,
+        "LsZ": 0.842,
+        "LsX": -1.535,
+        "LsY": -1.101,
+        "LeX": -0.334,
+        "RlZ": 0.01,
+        "RlY": 0.01,
+        "RlueX":0.03,
+        "RlleX":0.03,
+        "LlZ": 0.01,  // Ll for left leg
+        "LlY": 0.01,
+        "LlueX": 0.03,  // Lle for left upper leg elbow
+        "LlleX": 0.03,  // Lle for left lower leg elbow
+        "posY": 0.01,
+        "posX": -30
+      }
+    },
+    "pose3": {
+      "0": {
+        "RsZ": -2.124,
+        "RsX": 0.02,
+        "RsY": 0.01,
+        "ReX": 0.03,
+        "LsZ": 0.842,
+        "LsX": 0.02,
+        "LsY": 0.01,
+        "LeX": 0.03,
+        "RlZ": 0.01,
+        "RlY": 0.01,
+        "RlueX":0.03,
+        "RlleX":0.03,
+        "LlZ": 0.532,  // Ll for left leg
+        "LlY": 0.01,
+        "LlueX": 0.03,  // Lle for left upper leg elbow
+        "LlleX": 0.03,  // Lle for left lower leg elbow
+        "posY": 0.01,
+        "posX": 0.01
+      }
+    },
+    "pose4": {
+      "0": {
+        "RsZ": -0.842,
+        "RsX": -1.535,
+        "RsY": 1.101,
+        "ReX": -0.529,
+        "LsZ": 0.842,
+        "LsX": -1.535,
+        "LsY": -1.101,
+        "LeX": -0.334,
+        "RlZ": 0.01,
+        "RlY": 0.01,
+        "RlueX":0.03,
+        "RlleX":0.03,
+        "LlZ": 0.01,  // Ll for left leg
+        "LlY": 0.01,
+        "LlueX": 0.03,  // Lle for left upper leg elbow
+        "LlleX": 0.03,  // Lle for left lower leg elbow
+        "posY": 0.01,
+        "posX": 30
+      }
+    },
+    "pose5": {
+      "0": {
+        "RsZ": -2.229,
+        "RsX": 0.01,
+        "RsY": 0.01,
+        "ReX": 0.03,
+        "LsZ": 2.229,
+        "LsX": 0.02,
+        "LsY": 0.01,
+        "LeX": 0.03,
+        "RlZ": -0.737,
+        "RlY": 0.476,
+        "RlueX":0.03,
+        "RlleX":1,
+        "LlZ": 0.737,  // Ll for left leg
+        "LlY": -0.476,
+        "LlueX": 0.03,  // Lle for left upper leg elbow
+        "LlleX": 1,  // Lle for left lower leg elbow
+        "posY":	20,
+        "posX": 0.01
+      }
+    }
+    
+  },
+  "closed": false,
+  "folders": {}
+}
+}
+
+function keyframe(t) {
+  var s = ((t - ts) % T) / T;
+
+  for (var i = 1; i < keys.length; i++) {
+    if (keys[i][0] > s) break;
+  }
+
+  var ii = i - 1;
+  var a = (s - keys[ii][0]) / (keys[ii + 1][0] - keys[ii][0]);
+  console.log (a)
+  intKey = [keys[ii][1].RsZ * (1 - a) + keys[ii + 1][1].RsZ * a,
+            keys[ii][1].RsX * (1 - a) + keys[ii + 1][1].RsX * a,
+            keys[ii][1].RsY * (1 - a) + keys[ii + 1][1].RsY * a,
+            keys[ii][1].ReX * (1 - a) + keys[ii + 1][1].ReX * a,
+            keys[ii][1].LsZ * (1 - a) + keys[ii + 1][1].LsZ * a,
+            keys[ii][1].LsX * (1 - a) + keys[ii + 1][1].LsX * a,
+            keys[ii][1].LsY * (1 - a) + keys[ii + 1][1].LsY * a,
+            keys[ii][1].LeX * (1 - a) + keys[ii + 1][1].LeX * a,
+            keys[ii][1].RlZ * (1 - a) + keys[ii + 1][1].RlZ * a,
+            keys[ii][1].RlY * (1 - a) + keys[ii + 1][1].RlY * a,
+            keys[ii][1].RlueX * (1 - a) + keys[ii + 1][1].RlueX * a,
+            keys[ii][1].RlleX * (1 - a) + keys[ii + 1][1].RlleX * a,
+            keys[ii][1].LlZ * (1 - a) + keys[ii + 1][1].LlZ * a,
+            keys[ii][1].LlY * (1 - a) + keys[ii + 1][1].LlY * a,
+            keys[ii][1].LlueX * (1 - a) + keys[ii + 1][1].LlueX * a,
+            keys[ii][1].LlleX * (1 - a) + keys[ii + 1][1].LlleX * a,
+            keys[ii][1].posY * (1 - a) + keys[ii + 1][1].posY * a,
+            keys[ii][1].posX * (1 - a) + keys[ii + 1][1].posX * a
+  ];
+
+}
+
+function render() {
+
+	/*RupperArm.rotation.z = gcontrols.RsZ//theta1; //-Math.PI/6;//theta1;
+  RupperArm.rotation.y = gcontrols.RsY//theta2; //-Math.PI/3;//theta2;
+  RupperArm.rotation.x = gcontrols.RsX//theta2; //-Math.PI/3;//theta2;
+  RupperArm.rotation.order = 'ZXY';
+
+  RlowerArm.rotation.x = gcontrols.ReX//theta3; //-Math.PI/4;//theta3;
+  
+  LupperArm.rotation.z = gcontrols.LsZ;//theta1; //-Math.PI/6;//theta1;
+  LupperArm.rotation.y = gcontrols.LsY;//theta2; //-Math.PI/3;//theta2;
+  LupperArm.rotation.x = gcontrols.LsX;//theta2; //-Math.PI/3;//theta2;
+  LupperArm.rotation.order = 'ZXY';
+
+  LlowerArm.rotation.x = gcontrols.LeX;//theta3; //-Math.PI/4;//theta3;
+  
+  RupperLeg.rotation.z = gcontrols.RlZ;//theta1; //-Math.PI/6;//theta1;
+  RupperLeg.rotation.y = gcontrols.RlY;//theta2; //-Math.PI/3;//theta2;
+  
+  RupperLeg.rotation.order = 'ZXY';
+
+  RupperLeg.rotation.x = gcontrols.RlueX;//theta3; //-Math.PI/4;//theta3;
+  RlowerLeg.rotation.x = gcontrols.RlleX;//theta3;//-Math.PI/4;//theta3;
+  
+  	
+  LupperLeg.rotation.z = gcontrols.LlZ;//theta1; //-Math.PI/6;//theta1;
+  LupperLeg.rotation.y = gcontrols.LlY;//theta2; //-Math.PI/3;//theta2;
+  
+  LupperLeg.rotation.order = 'ZXY';
+
+  LupperLeg.rotation.x = gcontrols.LlueX;//theta3; //-Math.PI/4;//theta3;
+  LlowerLeg.rotation.x = gcontrols.LlleX;//theta3;//-Math.PI/4;//theta3;*/
+  
+  keyframe (clock.getElapsedTime());
+	RupperArm.rotation.z = intKey[0]//theta1; //-Math.PI/6;//theta1;
+  RupperArm.rotation.y = intKey[2]//theta2; //-Math.PI/3;//theta2;
+  RupperArm.rotation.x = intKey[1]//theta2; //-Math.PI/3;//theta2;
+  RupperArm.rotation.order = 'ZXY';
+
+  RlowerArm.rotation.x = intKey[3]//theta3; //-Math.PI/4;//theta3;
+  
+  LupperArm.rotation.z = intKey[4];//theta1; //-Math.PI/6;//theta1;
+  LupperArm.rotation.y = intKey[6];//theta2; //-Math.PI/3;//theta2;
+  LupperArm.rotation.x = intKey[5];//theta2; //-Math.PI/3;//theta2;
+  LupperArm.rotation.order = 'ZXY';
+
+  LlowerArm.rotation.x = intKey[7];//theta3; //-Math.PI/4;//theta3;
+  
+  RupperLeg.rotation.z = intKey[8];//theta1; //-Math.PI/6;//theta1;
+  RupperLeg.rotation.y = intKey[9];//theta2; //-Math.PI/3;//theta2;
+  
+  RupperLeg.rotation.order = 'ZXY';
+
+  RupperLeg.rotation.x = intKey[10];//theta3; //-Math.PI/4;//theta3;
+  RlowerLeg.rotation.x = intKey[11];//theta3;//-Math.PI/4;//theta3;
+  
+  	
+  LupperLeg.rotation.z = intKey[12];//theta1; //-Math.PI/6;//theta1;
+  LupperLeg.rotation.y = intKey[13];//theta2; //-Math.PI/3;//theta2;
+  
+  LupperLeg.rotation.order = 'ZXY';
+
+  LupperLeg.rotation.x = intKey[14];//theta3; //-Math.PI/4;//theta3;
+  LlowerLeg.rotation.x = intKey[15];//theta3;//-Math.PI/4;//theta3;
+	
+  /*body.position.y = gcontrols.posY;
+  body.position.x = gcontrols.posX;*/
+  body.position.y = intKey[16];
+  body.position.x = intKey[17];
+	
+  renderer.render(scene, camera);
+}
+</script>
+</body>
+</html>
+

@@ -1,0 +1,459 @@
+<html>
+<head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/84/three.min.js"></script>
+<script src="https://threejs.org/examples/js/controls/OrbitControls.js">
+</script>
+<script src="https://jyunming-chen.github.io/game3js/js/ccdsys.js"></script>
+<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+
+<style>
+#info {
+  position: absolute;
+  top: 0px;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  color: #ffff00
+}
+
+body {
+  overflow: hidden;
+}
+
+</style>
+
+</head>
+<body>
+<div id="info">HW4(BGM From:https://www.bensound.com)</br></br>
+<button id="play" style="width:20%">BGM開始</button>
+</div>
+<audio id="soundtrack" autoplay loop style="display:none" >
+  <source src="https://190190.github.io/-GameProgramHomework/BGM/bensound-memories (online-audio-converter.com).wav" type='audio/wav'>
+  </audio>
+
+<script>
+
+
+class Plane {
+  constructor(localPointOnPlane, localNormal, mesh) {
+    this.localPtOnPl = localPointOnPlane.clone();
+    this.localNormal = localNormal.clone();
+    //console.log(this.localPtOnPl);
+    this.mesh = mesh; // the graphics representation
+    scene.add(mesh)
+  }
+  update() {
+    this.mesh.updateMatrixWorld() // important!
+    this.ptOnPl = this.mesh.localToWorld(this.localPtOnPl.clone());
+    let normalMat = new THREE.Matrix3().getNormalMatrix(this.mesh.matrixWorld);
+    this.normal = this.localNormal.clone().applyMatrix3(normalMat).normalize()
+  }
+}
+class Ball {
+  constructor(mesh, rad , color) {
+
+    this.pos = new THREE.Vector3()
+    this.vel = new THREE.Vector3()
+    this.force = new THREE.Vector3()
+    this.mesh = mesh;
+    this.radius = rad;
+    this.light = new THREE.PointLight(color, 1, 50);
+    scene.add(this.light)
+    scene.add(this.mesh) // add to scene when particle is created
+
+    //  console.log(color)
+   // this.mesh.material.color.copy(color.clone());
+  }
+  update(dt) {
+    this.vel.add(this.force.clone().multiplyScalar(dt))
+    this.pos.add(this.vel.clone().multiplyScalar(dt))
+
+    this.collidingPlanes(planes)
+    // simple collision
+    /*
+    if (this.pos.z > 100 - this.radius) {
+      	const CR = 0.9
+      	this.pos.z = 100 - this.radius
+        this.vel.z = - CR * this.vel.z;
+      }
+    */
+    this.mesh.position.copy(this.pos)
+    this.light.position.copy(this.pos)
+    this.light.position.y += 20
+  }
+
+  collidingPlanes(planes) {
+    const EPS = 1e-3
+    const CR = 1
+    for (let i = 0; i < planes.length; i++) {
+      let plane = planes[i]
+      let point = this.pos.clone().sub(plane.ptOnPl)
+      if (point.dot(plane.normal) < EPS + this.radius) {
+        // position correction
+        this.pos.copy(plane.ptOnPl.clone().add(point.projectOnPlane(plane.normal)))
+        this.pos.add(plane.normal.clone().multiplyScalar(this.radius))
+        // velocity update
+        this.vel.sub(plane.normal.clone().multiplyScalar((1 + CR) * this.vel.dot(plane.normal)))
+        //return;  // assume particle collides with AT MOST one plane
+      }
+    }
+  }
+
+}
+
+
+
+class TwoLinkArm {
+	constructor () {
+  	this.theta1 = 0;
+    this.theta2 = 0;
+  }
+  init () {
+  let twoLink = new THREE.Object3D();
+  
+ 	let mat = new THREE.MeshNormalMaterial()
+	this.link1 = new THREE.Object3D();
+  this.link1.add (new THREE.AxisHelper (10))
+  let mesh = new THREE.Mesh (new THREE.BoxGeometry (10,3,5), mat)
+  this.link1.add (mesh);
+  mesh.position.x = 5
+
+twoLink.add (this.link1)
+	
+  this.link2 = new THREE.Object3D();
+  this.link2.add (new THREE.AxisHelper (10))
+  let mesh2 = new THREE.Mesh (new THREE.BoxGeometry (10,3,5), mat)
+  this.link2.add (mesh2);
+  mesh2.position.x = 5
+  
+  this.link1.add (this.link2)
+  this.link2.position.x = 10
+  
+  let paddle = new THREE.Mesh (new THREE.CylinderGeometry (5,5,4), mat)
+  this.link2.add (paddle)
+  paddle.position.x = 10
+ 	
+  return twoLink;
+  
+  }
+  update (thetas) {
+  	this.theta1 = thetas[0]
+    this.theta2 = thetas[1]
+    this.link1.rotation.y = this.theta1
+  	this.link2.rotation.y = this.theta2
+  }
+}
+
+var camera, scene, renderer;
+//var link1, link2, theta1, theta2;
+//var ccdSys;
+//var target;
+var twoLinkArm, twoLink;
+var twoLinkArm2, twoLink2;
+
+var disk;
+var raycaster;
+var mouse = new THREE.Vector2();
+var pickables = [];
+
+var clock = new THREE.Clock();
+var paddlePos = new THREE.Vector3();
+var plane, wall;
+var planes = [];
+var collisionSound, collisionSoundWall,soundTrack,isPaused = false;
+init();
+animate();
+
+
+$('#play').click(function() {
+  isPaused = !isPaused;
+  if (isPaused) {
+    $('#play').text('BGM暫停')
+    soundTrack.play()
+  } else {
+    $('#play').text('BGM開始')
+    soundTrack.pause()
+  }
+});
+
+function fk (thetas, joints) {  // all memory assumed in place
+  joints[0].set (0,0,0);
+  
+  var localzero = new THREE.Vector3(0, 0, 0);
+  var m = new THREE.Matrix4();
+  m.makeRotationY(thetas[0]);
+  m.multiply(new THREE.Matrix4().makeTranslation(10, 0, 0));
+  localzero.applyMatrix4(m);
+  joints[1].copy(localzero);
+
+  localzero.set(0, 0, 0);
+  m.multiply(new THREE.Matrix4().makeRotationY(thetas[1]));
+  m.multiply(new THREE.Matrix4().makeTranslation(10, 0, 0));
+  localzero.applyMatrix4(m);
+  joints[2].copy(localzero);
+}
+
+function init() {
+	soundTrack = document.getElementById('soundtrack');
+  soundTrack.volume = 0.7;
+  soundTrack.pause();
+  
+  scene = new THREE.Scene();
+
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 1000);
+  camera.position.z = 100;
+
+  light = new THREE.PointLight(0xffffff);
+  light.position.set(100, 300, 200);
+  scene.add(light);
+
+  //var gridXZ = new THREE.GridHelper(100, 10, 'red', 'white');
+  var gridXZ=new THREE.Mesh(new THREE.PlaneGeometry(100, 150), new THREE.MeshPhongMaterial({
+    color: 0xFF5511,
+    side: THREE.DoubleSide
+  }));
+  gridXZ.rotation.x = -Math.PI / 2;
+  gridXZ.position.y = -1.5;
+  scene.add(gridXZ);
+
+  renderer = new THREE.WebGLRenderer();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x888888);
+
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+  document.body.appendChild(renderer.domElement);
+  disk = new THREE.Mesh(new THREE.CylinderGeometry(3, 3,1, 32), new THREE.MeshBasicMaterial({
+  color: 0xB52F3C,
+  emissive:0x915F5F
+  }))
+  ball = new Ball(disk, 10, new THREE.Color(0xe29d26))
+  ball.vel.set(2, 0, 2)
+  ball.pos.set(0, 3, 0)
+  scene.add(ball);
+  
+  
+  wall = new THREE.Mesh(new THREE.BoxGeometry(100, 5, 10), new THREE.MeshPhongMaterial({
+  	color: 0xFFFF33,
+    transparent: true,
+    side: THREE.DoubleSide,
+  }))
+  scene.add(wall)
+  wall.position.z = 70
+  plane = new Plane(new THREE.Vector3(0, 0, -5), new THREE.Vector3(0, 0, -1), wall)
+  plane.update()
+  planes.push(plane)
+
+  wall = new THREE.Mesh(new THREE.BoxGeometry(100, 5, 10), new THREE.MeshPhongMaterial({
+  	color: 0xFFFF33,
+    transparent: true,
+    side: THREE.DoubleSide,
+  }))
+  scene.add(wall)
+  wall.position.z = -70
+  plane = new Plane(new THREE.Vector3(0, 0, 5), new THREE.Vector3(0, 0, 1), wall.clone())
+  plane.update()
+  planes.push(plane)
+
+  wall = new THREE.Mesh(new THREE.BoxGeometry(150, 5, 10), new THREE.MeshPhongMaterial({
+  	color: 0xFFFF33,
+    transparent: true,
+    side: THREE.DoubleSide,
+  }))
+  scene.add(wall)
+  wall.position.x = 55
+  wall.rotation.y = Math.PI / 2;
+  plane = new Plane(new THREE.Vector3(0, 0, -5), new THREE.Vector3(0, 0, -1), wall.clone())
+  plane.update()
+  planes.push(plane)
+
+  wall = new THREE.Mesh(new THREE.BoxGeometry(150, 5, 10), new THREE.MeshPhongMaterial({
+  	color: 0xFFFF33,
+    transparent: true,
+    side: THREE.DoubleSide,
+  }))
+  scene.add(wall)
+  wall.position.x = -55;
+  wall.rotation.y = Math.PI / 2;
+  plane = new Plane(new THREE.Vector3(0, 0, 5), new THREE.Vector3(0, 0, 1), wall.clone())
+  plane.update()
+  planes.push(plane)
+  
+  //四根柱子
+   wall = new THREE.Mesh(new THREE.BoxGeometry(10, 30, 10), new THREE.MeshPhongMaterial({
+  	color: 0x00FF00,
+    transparent: true,
+    side: THREE.DoubleSide,
+  }))
+  scene.add(wall)
+  wall.position.z = 52;
+  wall.position.y=-17;
+  wall.position.x=50;
+  
+  wall = new THREE.Mesh(new THREE.BoxGeometry(10, 30, 10), new THREE.MeshPhongMaterial({
+  	color: 0x00FF00,
+    transparent: true,
+    side: THREE.DoubleSide,
+  }))
+  scene.add(wall)
+  wall.position.z = -52;
+  wall.position.y=-17;
+  wall.position.x=-50;
+  
+  wall = new THREE.Mesh(new THREE.BoxGeometry(10, 30, 10), new THREE.MeshPhongMaterial({
+  	color: 0x00FF00,
+    transparent: true,
+    side: THREE.DoubleSide,
+  }))
+  scene.add(wall)
+  wall.position.z = -50;
+  wall.position.y=-17;
+  wall.position.x=52;
+  
+  wall = new THREE.Mesh(new THREE.BoxGeometry(10, 30, 10), new THREE.MeshPhongMaterial({
+  	color: 0x00FF00,
+    transparent: true,
+    side: THREE.DoubleSide,
+  }))
+  scene.add(wall)
+  wall.position.z = 50;
+  wall.position.y=-17;
+  wall.position.x=-52;
+  
+ 
+  
+  
+  //balls.push(ball)
+  ///////////////////////////////////////////////////////////
+/*
+let mat = new THREE.MeshNormalMaterial()
+	link1 = new THREE.Object3D();
+  link1.add (new THREE.AxisHelper (10))
+  mesh = new THREE.Mesh (new THREE.BoxGeometry (10,3,5), mat)
+  link1.add (mesh);
+  mesh.position.x = 5
+	
+  scene.add (link1)
+  link2 = new THREE.Object3D();
+  link2.add (new THREE.AxisHelper (10))
+  let mesh2 = new THREE.Mesh (new THREE.BoxGeometry (10,3,5), mat)
+  link2.add (mesh2);
+  mesh2.position.x = 5
+  
+  link1.add (link2)
+  link2.position.x = 10
+  
+  paddle = new THREE.Mesh (new THREE.CylinderGeometry (5,5,4), mat)
+  link2.add (paddle)
+  paddle.position.x = 10
+*/
+	twoLinkArm = new TwoLinkArm ();  // global 
+  twoLink = twoLinkArm.init();
+  scene.add (twoLink);
+  twoLink.position.set (0,0,50)
+  
+	twoLinkArm2 = new TwoLinkArm ();  // global 
+  twoLink2 = twoLinkArm2.init();
+  scene.add (twoLink2);
+  twoLink2.position.set (0,0,-50)
+  twoLink2.rotation.y = Math.PI
+
+	//////////////////////////////////////
+  twoLinkArm.ccdSys = new CCDSys (fk)
+  twoLinkArm.ccdSys.setCCDAxis (new THREE.Vector3(0,1,0), 0)
+  twoLinkArm.ccdSys.setCCDAxis (new THREE.Vector3(0,1,0), 1)
+  
+  twoLinkArm.target = new THREE.Vector3();
+
+	twoLinkArm2.ccdSys = new CCDSys (fk)
+  twoLinkArm2.ccdSys.setCCDAxis (new THREE.Vector3(0,1,0), 0)
+  twoLinkArm2.ccdSys.setCCDAxis (new THREE.Vector3(0,1,0), 1)
+  
+  twoLinkArm2.target = new THREE.Vector3();
+ 
+
+//theta1 = theta2 = 0
+  ///////////////////////////////////////////
+   plane = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial({
+    transparent: true,
+    opacity: 0.5,
+    visible: true
+  }));
+  scene.add(plane);
+  plane.rotation.x = -Math.PI / 2;
+  pickables = [plane];
+
+  puck = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 2, 20), new THREE.MeshNormalMaterial());
+  //scene.add(puck); 
+
+	raycaster = new THREE.Raycaster();
+  document.addEventListener('mousemove', onDocumentMouseDown, false);
+
+}
+
+function onDocumentMouseDown(event) {
+
+  event.preventDefault();
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  // find intersections
+  raycaster.setFromCamera(mouse, camera);
+  var intersects = raycaster.intersectObjects(pickables);
+  if (intersects.length > 0) {
+    puck.position.copy(intersects[0].point);
+    //twoLinkArm.target.copy (twoLink.worldToLocal (puck.position.clone()) )
+    
+    //twoLinkArm2.target.copy (twoLink2.worldToLocal (puck.position.clone()) )
+  }
+
+}
+
+function animate() {
+	ball.update(0.8)
+  requestAnimationFrame(animate);
+  render();
+}
+
+function render() {
+	update();
+  renderer.render(scene, camera);
+}
+
+function update() {
+	var thetas = [twoLinkArm.theta1, twoLinkArm.theta2];
+	twoLinkArm.ccdSys.solve (twoLinkArm.target, thetas);
+	twoLinkArm.update (thetas)
+
+	thetas = [twoLinkArm2.theta1, twoLinkArm2.theta2];
+	twoLinkArm2.ccdSys.solve (twoLinkArm2.target, thetas);
+	twoLinkArm2.update (thetas)
+  
+  twoLinkArm.target.copy (twoLink.worldToLocal (ball.pos.clone()) )
+  
+  twoLinkArm2.target.copy (twoLink2.worldToLocal (ball.pos.clone()) )
+  
+  
+/*
+	theta1 = thetas[0]
+	theta2 = thetas[1]
+	
+  link1.rotation.y = theta1
+  link2.rotation.y = theta2
+*/
+/*  
+  let dt = clock.getDelta();
+  let nowPos = ( link2.localToWorld (new THREE.Vector3(10,0,0)) )
+  vel = nowPos.clone().sub(paddlePos).multiplyScalar (1/dt);
+  console.log (vel)
+  $('#velprint').text (vel.x.toFixed(2) + ', ' + vel.z.toFixed(2))
+  // update
+  paddlePos.copy ( nowPos)
+*/
+	
+}
+
+</script>
+</body>
+</html>
+

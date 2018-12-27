@@ -1,0 +1,155 @@
+<html>
+<head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/84/three.min.js"></script>
+<script src="https://threejs.org/examples/js/controls/OrbitControls.js">
+</script>
+<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+
+<style>
+#info {
+  position: absolute;
+  top: 2%;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  color: #ffff00
+}
+
+body {
+  overflow: hidden;
+}
+</style>
+
+</head>
+<body>
+<div id="info">請按下Start讓火車移動，按下Stop讓火車停止移動
+  <br>
+  <br>
+  <button id="stop" style="width:20%">Stop</button>
+  <button id="start" style="width:20%">Start</button>
+</div>
+
+<script>
+var renderer, camera, controls, scene;
+var angle;
+var train;
+var turn;
+
+init();
+animate();
+
+$("#start").click(function() {
+  turn = true;
+});
+
+$("#stop").click(function() {
+  turn = false;
+});
+
+function init() {
+	renderer = new THREE.WebGLRenderer({
+	  antialias: true
+	});
+	renderer.setSize(window.innerWidth, window.innerHeight);
+	renderer.setClearColor(0x888888);
+	document.body.appendChild(renderer.domElement);
+	camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 1000);
+	camera.position.z = 50;  // important
+
+	controls = new THREE.OrbitControls(camera, renderer.domElement);
+	scene = new THREE.Scene();
+	  
+	let gridXZ = new THREE.GridHelper(100, 10, 'red', 'white');
+	scene.add(gridXZ);
+
+	let axes = new THREE.AxisHelper (10);
+	scene.add (axes);
+  
+	train = new THREE.Group();
+  let geometry = new THREE.BoxGeometry (30, 10, 10)
+  let material = new THREE.MeshNormalMaterial()
+  mesh = new THREE.Mesh (geometry, material)
+  //scene.add (mesh)
+  
+  let square=new THREE.Mesh (new THREE.BoxGeometry (10, 10, 10),new THREE.MeshNormalMaterial());
+  square.position.x = 0;
+  square.position.y = 8;
+  square.position.z = 0;
+  train.add (square);
+  
+  let square2=new THREE.Mesh (new THREE.BoxGeometry (10, 10, 3),new THREE.MeshNormalMaterial());
+  square2.position.x = 10;
+  square2.position.y = 5;
+  square2.position.z = 0;
+  square2.rotation.x=Math.PI/2;
+  train.add (square2);
+
+  let block=new THREE.Mesh(new THREE.CylinderGeometry(4,4,10,40),new THREE.MeshPhongMaterial());
+  block.position.x = 10;
+  block.position.y = 10;
+  block.position.z = 0;
+  block.updateMatrix();
+  block.matrixAutoUpdate = false;
+  train.add (block);
+  
+  let round1=new THREE.Mesh(new THREE.CylinderGeometry(4,4,1,40),new THREE.MeshPhongMaterial());
+  round1.position.x = 10;
+  round1.position.y = -2;
+  round1.position.z = 6;
+  round1.rotation.x=Math.PI/2;
+  round1.updateMatrix();
+  round1.matrixAutoUpdate = false;
+  train.add (round1);
+  
+  let round2=new THREE.Mesh(new THREE.CylinderGeometry(4,4,1,40),new THREE.MeshPhongMaterial());
+  round2.position.x = -10;
+  round2.position.y = -2;
+  round2.position.z = 6;
+  round2.rotation.x=Math.PI/2;
+  round2.updateMatrix();
+  round2.matrixAutoUpdate = false;
+  train.add (round2);
+  
+  let round3=new THREE.Mesh(new THREE.CylinderGeometry(4,4,1,40),new THREE.MeshPhongMaterial());
+  round3.position.x = 10;
+  round3.position.y = -2;
+  round3.position.z = -6;
+  round3.rotation.x=Math.PI/2;
+  round3.updateMatrix();
+  round3.matrixAutoUpdate = false;
+  train.add (round3);
+  
+  let round4=new THREE.Mesh(new THREE.CylinderGeometry(4,4,1,40),new THREE.MeshPhongMaterial());
+  round4.position.x = -10;
+  round4.position.y = -2;
+  round4.position.z = -6;
+  round4.rotation.x=Math.PI/2;
+  round4.updateMatrix();
+  round4.matrixAutoUpdate = false;
+  train.add (round4);
+  
+  train.add (mesh);
+  
+  scene.add (train);
+  
+	angle = 0;
+}
+
+function animate() {
+  controls.update();
+  renderer.render (scene, camera);
+  if (turn===true){
+  	angle = angle + 0.01;  // radian
+  }
+	train.rotation.y = angle + Math.PI/2;
+  //console.log (angle)
+  
+  train.position.set (40*Math.cos(angle), 5, -40*Math.sin(angle));
+  
+  requestAnimationFrame (animate);
+}
+
+</script>
+</body>
+</html>
+
