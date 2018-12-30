@@ -53,24 +53,30 @@ class Agent {
     // pick the most threatening one
     // apply the repulsive force
     // (write your code here)
-	for(var i=0;i<obs.length;i++){
-		let vhat = this.vel.clone().normalize();
-		let point = obs[i].center.clone().sub (this.pos) // c-p
-		let proj  = point.dot(vhat);
-		const REACH = 50
-		const K = 5
+	let vhat = this.vel.clone().normalize();
+	let min = 1e10;
+	let ID = -1, minPrep;
+    const REACH = 50;
+    const K = 10;
+	for(let i = 0; i < obs.length; i++){
+	    let point = obs[i].center.clone().sub (this.pos) // c-p
+	    let proj  = point.dot(vhat);
 		if (proj > 0 && proj < REACH) {
-			let perp = new THREE.Vector3();
-			perp.subVectors (point, vhat.clone().setLength(proj));
-			let overlap = obs[i].size - perp.length()
-			if (overlap > 0) {
-					perp.setLength (K*overlap);
-					perp.negate()
-					this.force.add (perp);
-					console.log ("hit:", perp);
-			}
-		}
+		  let perp = new THREE.Vector3();
+		  perp.subVectors (point, vhat.clone().setLength(proj));
+		  let overlap = obs[i].size + this.halfSize - perp.length()
+          if (overlap > 0 && proj < min) {
+			min = proj;
+			perp.setLength (K*overlap);
+			perp.negate()
+			ID = i;
+			minPrep = perp.clone();
+            //this.force.add (perp);
+			console.log ("hit:", perp);
+		  }
+	    }
 	}
+	if(ID > -1) this.force.add(minPrep);
 
 	// Euler's method       
     this.vel.add(this.force.clone().multiplyScalar(dt));
